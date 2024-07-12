@@ -61,6 +61,7 @@
 #include "projector.h"
 #include "timing.h"
 #include "use_ikfom.h"
+#include <rosbag/bag.h>
 
 #define INIT_TIME (0.1)
 #define DIM_STATE (23)
@@ -122,6 +123,8 @@ esekfom::esekf<state_ikfom, 12, input_ikfom> kf;
 state_ikfom state_point;
 
 vect3 pos_lid;
+
+rosbag::Bag bag_out;
 
 nav_msgs::Path path;
 nav_msgs::Odometry odomAftMapped;
@@ -492,6 +495,9 @@ void publish_odometry(const ros::Publisher & pubOdomAftMapped)
     odomAftMapped.child_frame_id = "body";
     odomAftMapped.header.stamp = ros::Time().fromSec(lidar_end_time);// ros::Time().fromSec(lidar_end_time);
     set_posestamp(odomAftMapped.pose);
+
+    bag_out.write("/coinlio_odometry",odomAftMapped.header.stamp,odomAftMapped);
+
     pubOdomAftMapped.publish(odomAftMapped);
     auto P = kf.get_P();
     for (int i = 0; i < 6; i ++)
@@ -517,6 +523,7 @@ void publish_odometry(const ros::Publisher & pubOdomAftMapped)
     q.setZ(odomAftMapped.pose.pose.orientation.z);
     transform.setRotation( q );
     br.sendTransform( tf::StampedTransform( transform, odomAftMapped.header.stamp, "camera_init", "body" ) );
+
 }
 
 void publish_path(const ros::Publisher pubPath)
@@ -995,6 +1002,9 @@ int main(int argc, char** argv)
     FOV_DEG = (fov_deg + 10.0) > 179.9 ? 179.9 : (fov_deg + 10.0);
     double trajectory_length = 0.0;
     V3D t_G_I = V3D::Zero();
+
+    std::string out_bag_name = "/tmp/odometry_coinlio_bag.bag";
+    bag_out.open(out_bag_name, rosbag::bagmode::Write);
     
     memset(point_selected_surf, true, sizeof(point_selected_surf));
     downSizeFilterSurf.setLeafSize(filter_size_surf_min, filter_size_surf_min, filter_size_surf_min);
